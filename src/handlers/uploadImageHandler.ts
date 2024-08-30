@@ -18,7 +18,7 @@ const uploadImageRequestBody = z.object({
   measure_type: z.enum(["WATER", "GAS"]),
 });
 
-function uploadImageHandler(req: Request, res: Response) {
+async function uploadImageHandler(req: Request, res: Response) {
   const result = uploadImageRequestBody.safeParse(req.body);
 
   if (!result.success) {
@@ -30,7 +30,9 @@ function uploadImageHandler(req: Request, res: Response) {
 
   const { image, customer_code, measure_datetime, measure_type } = result.data;
 
-  if (checkDuplicateReading(customer_code, measure_type, measure_datetime)) {
+  if (
+    await checkDuplicateReading(customer_code, measure_type, measure_datetime)
+  ) {
     return res.status(409).json({
       error_code: "DOUBLE_REPORT",
       error_description: "Leitura do mês já realizada.",
@@ -38,10 +40,12 @@ function uploadImageHandler(req: Request, res: Response) {
   }
 
   const measure_uuid = crypto.randomUUID();
-  const measurement_value = extractMeasurement(measure_type, image);
+  const measurement_value = await extractMeasurement(measure_type, image);
 
   addImage(measure_uuid, image);
-  
+
+  extractMeasurement(measure_type, image);
+
   storeMeasurement(customer_code, {
     measure_uuid,
     measure_datetime,
