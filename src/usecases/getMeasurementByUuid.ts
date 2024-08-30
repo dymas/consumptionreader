@@ -1,9 +1,22 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
 export async function getMeasurementByUuid(measure_uuid: string) {
-  return {
-    measure_uuid,
-    measure_datetime: "2022-08-30T10:00:00Z",
-    measure_type: "WATER",
-    has_confirmed: true,
-    image_url: "/image/12345",
-  };
+  try {
+    const measurement = await prisma.measurement.findUnique({
+      where: {
+        measure_uuid: measure_uuid,
+      },
+    });
+
+    if (!measurement) {
+      return null;
+    }
+
+    return measurement;
+  } catch (error) {
+    console.error("Erro ao buscar medição:", error);
+    throw new Error("Erro ao buscar medição");
+  }
 }
