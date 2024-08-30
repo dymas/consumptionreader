@@ -2,7 +2,9 @@
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["**/*"],
   "exclude": ["node_modules"],
