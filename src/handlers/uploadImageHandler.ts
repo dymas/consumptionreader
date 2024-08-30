@@ -3,7 +3,7 @@ import { z } from "zod";
 import { checkDuplicateReading } from "#usecases/checkDuplicateReading";
 import { extractMeasurement } from "#usecases/extractMeasurement";
 import { addImage } from "#utils/tempImagesStore";
-import { storeMeasurement } from "#usecases/storeMeasurement.js";
+import { storeMeasurement } from "#usecases/storeMeasurement";
 
 const uploadImageRequestBody = z.object({
   image: z
