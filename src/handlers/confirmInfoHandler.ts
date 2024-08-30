@@ -39,7 +39,7 @@ export async function confirmInfoHandler(req: Request, res: Response) {
       });
     }
 
-    await confirmMeasurement(measure_uuid, confirmed_value);
+    await confirmMeasurement(measure_uuid);
 
     return res.status(200).json({ success: true });
   } catch (error) {
