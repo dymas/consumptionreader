@@ -3,6 +3,7 @@ import { z } from "zod";
 import { checkDuplicateReading } from "#usecases/checkDuplicateReading";
 import { extractMeasurement } from "#usecases/extractMeasurement";
 import { addImage } from "#utils/tempImagesStore";
+import { storeMeasurement } from "#usecases/storeMeasurement.js";
 
 const uploadImageRequestBody = z.object({
   image: z
@@ -38,7 +39,16 @@ function uploadImageHandler(req: Request, res: Response) {
 
   const measure_uuid = crypto.randomUUID();
   const measurement_value = extractMeasurement(measure_type, image);
+
   addImage(measure_uuid, image);
+  
+  storeMeasurement(customer_code, {
+    measure_uuid,
+    measure_datetime,
+    measure_type,
+    has_confirmed: false,
+    image_url: `/image/${measure_uuid}`,
+  });
 
   res.status(200).json({
     image_url: `/image/${measure_uuid}`,
