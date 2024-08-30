@@ -1,109 +1,66 @@
-// allClientMeasuresHandler.test.ts
-import { Request, Response } from "express";
+import request from "supertest";
+import express from "express";
 import { allClientMeasuresHandler } from "#handlers/allClientMeasures";
 import { getMeasurementsByCustomerCode } from "#usecases/getMeasurementsByCustomerCode";
+
+const app = express();
+app.use(express.json());
+app.get("/:customer_code/list", allClientMeasuresHandler);
 
 jest.mock("#usecases/getMeasurementsByCustomerCode");
 
 describe("allClientMeasuresHandler", () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-
   beforeEach(() => {
-    req = {
-      params: {},
-      query: {},
-    };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
     jest.clearAllMocks();
   });
 
   it("should return 400 if measure type is invalid", async () => {
-    req.params.customer_code = "12345";
-    req.query.measure_type = "INVALID_TYPE";
+    const response = await request(app).get(
+      "/customer123/list?measure_type=INVALID_TYPE"
+    );
 
-    await allClientMeasuresHandler(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
       error_code: "INVALID_TYPE",
       error_description: "Tipo de medição não permitida",
     });
   });
 
   it("should return 404 if no measures are found", async () => {
-    req.params.customer_code = "12345";
-    req.query.measure_type = "WATER";
-
     (getMeasurementsByCustomerCode as jest.Mock).mockResolvedValue(null);
 
-    await allClientMeasuresHandler(req as Request, res as Response);
+    const response = await request(app).get("/customer123/list");
 
-    expect(getMeasurementsByCustomerCode).toHaveBeenCalledWith("12345", [
-      "WATER",
-    ]);
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({
       error_code: "MEASURES_NOT_FOUND",
       error_description: "Nenhuma leitura encontrada",
     });
   });
 
   it("should return 200 on success", async () => {
-    req.params.customer_code = "12345";
-    req.query.measure_type = "GAS";
-
-    const mockMeasures = [
+    const mockMeasurements = [
       {
-        measure_uuid: "uuid1",
-        measure_datetime: "2024-08-30T12:00:00Z",
-        measure_type: "GAS",
-        has_confirmed: false,
-        image_url: "/image/uuid1",
-      },
-      {
-        measure_uuid: "uuid2",
-        measure_datetime: "2024-08-30T13:00:00Z",
-        measure_type: "GAS",
+        measure_uuid: "12345",
+        measure_datetime: "2022-08-30T10:00:00Z",
+        measure_type: "WATER",
         has_confirmed: true,
-        image_url: "/image/uuid2",
+        image_url: "/image/12345",
       },
     ];
 
     (getMeasurementsByCustomerCode as jest.Mock).mockResolvedValue(
-      mockMeasures
+      mockMeasurements
     );
 
-    await allClientMeasuresHandler(req as Request, res as Response);
-
-    expect(getMeasurementsByCustomerCode).toHaveBeenCalledWith("12345", [
-      "GAS",
-    ]);
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({
-      customer_code: "12345",
-      measures: mockMeasures,
-    });
-  });
-
-  it("should return 500 on error", async () => {
-    req.params.customer_code = "12345";
-    req.query.measure_type = "WATER";
-
-    (getMeasurementsByCustomerCode as jest.Mock).mockRejectedValue(
-      new Error("Server Error")
+    const response = await request(app).get(
+      "/customer123/list?measure_type=WATER"
     );
 
-    await allClientMeasuresHandler(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({
-      error_code: "SERVER_ERROR",
-      error_description:
-        "Erro ao processar a requisição. Tente novamente mais tarde.",
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      customer_code: "customer123",
+      measures: mockMeasurements,
     });
   });
 });

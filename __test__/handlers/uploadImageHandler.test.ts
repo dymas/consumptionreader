@@ -1,9 +1,14 @@
-import { Request, Response } from "express";
+import request from "supertest";
+import express from "express";
 import { uploadImageHandler } from "#handlers/uploadImageHandler";
 import { checkDuplicateReading } from "#usecases/checkDuplicateReading";
 import { extractMeasurement } from "#usecases/extractMeasurement";
 import { addImage } from "#utils/tempImagesStore";
 import { storeMeasurement } from "#usecases/storeMeasurement";
+
+const app = express();
+app.use(express.json());
+app.post("/upload", uploadImageHandler);
 
 jest.mock("#usecases/checkDuplicateReading");
 jest.mock("#usecases/extractMeasurement");
@@ -11,72 +16,74 @@ jest.mock("#utils/tempImagesStore");
 jest.mock("#usecases/storeMeasurement");
 
 describe("uploadImageHandler", () => {
-  let req: Partial<Request>;
-  let res: Partial<Response>;
-
   beforeEach(() => {
-    req = { body: {} };
-    res = {
-      status: jest.fn().mockReturnThis(),
-      json: jest.fn(),
-    };
+    jest.clearAllMocks();
   });
 
-  it("should return 400 if request body is invalid", () => {
-    req.body = {
-      image: "invalid_base64_string",
+  it("should return 400 if request body is invalid", async () => {
+    const response = await request(app).post("/upload").send({
+      image: "invalid_base64_image",
       customer_code: "",
-      measure_datetime: "invalid_date",
-      measure_type: "INVALID_TYPE",
-    };
+      measure_datetime: "2024-08-30T10:00:00Z",
+      measure_type: "WATER",
+    });
 
-    uploadImageHandler(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
       error_code: "INVALID_DATA",
-      error_description: expect.any(String),
+      error_description: "Imagem deve ser uma string base64",
     });
   });
 
-  it("should return 409 if duplicate reading is found", () => {
-    req.body = {
+  it("should return 409 if a duplicate reading is found", async () => {
+    (checkDuplicateReading as jest.Mock).mockResolvedValue(true);
+
+    const response = await request(app).post("/upload").send({
       image: "aGVsbG8gd29ybGQ=",
-      customer_code: "12345",
+      customer_code: "customer123",
       measure_datetime: "2024-08-30T10:00:00Z",
       measure_type: "WATER",
-    };
-    (checkDuplicateReading as jest.Mock).mockReturnValue(true);
+    });
 
-    uploadImageHandler(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(409);
-    expect(res.json).toHaveBeenCalledWith({
+    expect(response.status).toBe(409);
+    expect(response.body).toEqual({
       error_code: "DOUBLE_REPORT",
       error_description: "Leitura do mês já realizada.",
     });
   });
 
-  it("should process valid request and return 200", () => {
-    req.body = {
+  it("should return 200 on success", async () => {
+    (checkDuplicateReading as jest.Mock).mockResolvedValue(false);
+    (extractMeasurement as jest.Mock).mockResolvedValue(10);
+    (storeMeasurement as jest.Mock).mockResolvedValue(true);
+    (addImage as jest.Mock).mockImplementation(() => {});
+
+    const response = await request(app).post("/upload").send({
       image: "aGVsbG8gd29ybGQ=",
-      customer_code: "12345",
+      customer_code: "customer123",
       measure_datetime: "2024-08-30T10:00:00Z",
       measure_type: "WATER",
-    };
-    (checkDuplicateReading as jest.Mock).mockReturnValue(false);
-    (extractMeasurement as jest.Mock).mockReturnValue(42);
-
-    uploadImageHandler(req as Request, res as Response);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith({
-      image_url: expect.any(String),
-      measurement_value: 42,
-      measure_uuid: expect.any(String),
     });
 
-    expect(addImage).toHaveBeenCalledWith(expect.any(String), req.body.image);
-    expect(storeMeasurement).toHaveBeenCalledWith(req.body.customer_code, expect.any(Object));
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      image_url: expect.stringMatching(/^\/image\/[a-f0-9\-]{36}$/),
+      measurement_value: 10,
+      measure_uuid: expect.any(String),
+    });
+    expect(addImage).toHaveBeenCalledWith(
+      expect.any(String),
+      "aGVsbG8gd29ybGQ="
+    );
+    expect(storeMeasurement).toHaveBeenCalledWith(
+      "customer123",
+      expect.objectContaining({
+        measure_uuid: expect.any(String),
+        measure_datetime: "2024-08-30T10:00:00Z",
+        measure_type: "WATER",
+        has_confirmed: false,
+        image_url: expect.stringMatching(/^\/image\/[a-f0-9\-]{36}$/),
+      })
+    );
   });
 });
