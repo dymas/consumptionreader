@@ -6,11 +6,7 @@ import { addImage } from "#utils/tempImagesStore";
 import { storeMeasurement } from "#usecases/storeMeasurement";
 
 const uploadImageRequestBody = z.object({
-  image: z
-    .string()
-    .regex(/^([0-9a-zA-Z+/]{4})*(([0-9a-zA-Z+/]{2}==)|([0-9a-zA-Z+/]{3}=))?$/, {
-      message: "Imagem deve ser uma string base64",
-    }),
+  image: z.string(),
   customer_code: z
     .string()
     .min(1, "Código do cliente deve ser uma string não vazia"),

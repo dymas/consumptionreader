@@ -1,13 +1,18 @@
 import fs from "fs";
 import path from "path";
+import { dirname } from "path";
 import { promisify } from "util";
 import { GoogleAIFileManager } from "@google/generative-ai/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { fileURLToPath } from 'url';
+import 'dotenv/config';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 const writeFileAsync = promisify(fs.writeFile);
 const unlinkAsync = promisify(fs.unlink);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export async function extractMeasurement(
   measure_type: string,
@@ -19,7 +24,7 @@ export async function extractMeasurement(
 
     await writeFileAsync(tempFilePath, base64Data, "base64");
     
-    const fileManager = new GoogleAIFileManager(process.env.API_KEY);
+    const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
 
     const uploadResponse = await fileManager.uploadFile(tempFilePath, {
       mimeType: "image/jpeg",
